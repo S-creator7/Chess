@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "Chess",
+    "slug": "chess",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.chess.app"
+    },
+    "android": {
+      "package": "com.chess.app"
+    }
+  }
+}

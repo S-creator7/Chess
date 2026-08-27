@@ -1,0 +1,19 @@
+{
+  "name": "chess",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev": "pnpm --filter @chess/api --filter @chess/web --parallel dev",
+    "dev:api": "pnpm --filter @chess/api dev",
+    "dev:web": "pnpm --filter @chess/web dev",
+    "dev:mobile": "pnpm --filter @chess/mobile dev",
+    "test": "pnpm -r --if-present test",
+    "build": "pnpm -r --if-present build",
+    "db:generate": "pnpm --filter @chess/api prisma:generate",
+    "db:migrate": "pnpm --filter @chess/api prisma:migrate",
+    "db:push": "pnpm --filter @chess/api prisma:push"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

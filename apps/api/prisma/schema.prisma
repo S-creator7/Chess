@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  passwordHash  String
+  displayName   String
+  rating        Int            @default(1500)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  refreshTokens RefreshToken[]
+  whiteGames    Game[]         @relation("WhitePlayer")
+  blackGames    Game[]         @relation("BlackPlayer")
+  chatMessages  ChatMessage[]
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model Game {
+  id           String    @id @default(cuid())
+  whiteId      String
+  blackId      String
+  white        User      @relation("WhitePlayer", fields: [whiteId], references: [id])
+  black        User      @relation("BlackPlayer", fields: [blackId], references: [id])
+  timeControl  String
+  initialMs    Int
+  incrementMs  Int       @default(0)
+  whiteClockMs Int
+  blackClockMs Int
+  lastMoveAt   DateTime?
+  status       String
+  result       String?
+  rated        Boolean   @default(true)
+  startFen     String    @default("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  moves        Move[]
+  chatMessages ChatMessage[]
+
+  @@index([whiteId])
+  @@index([blackId])
+  @@index([status])
+}
+
+model Move {
+  id        String   @id @default(cuid())
+  gameId    String
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  ply       Int
+  san       String
+  uci       String
+  fenAfter  String
+  timeMs    Int
+  createdAt DateTime @default(now())
+
+  @@unique([gameId, ply])
+  @@index([gameId])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  gameId    String
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([gameId, createdAt])
+}
