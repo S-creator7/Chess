@@ -62,7 +62,7 @@ export function Board({
 }: Props) {
   const { width } = useWindowDimensions();
   const size = Math.min(width - 24, 420);
-  const cell = size / 8;
+  const pieceSize = Math.floor((size - 6) / 8 * 0.72);
   const [selected, setSelected] = useState<string | null>(null);
   const files = orientation === "white" ? [0, 1, 2, 3, 4, 5, 6, 7] : [7, 6, 5, 4, 3, 2, 1, 0];
   const ranks = orientation === "white" ? [7, 6, 5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 5, 6, 7];
@@ -92,39 +92,48 @@ export function Board({
   }
 
   return (
-    <View
-      style={[
-        styles.wrap,
-        { width: size, height: size },
-        yourTurn && !winner ? styles.yourTurn : null,
-      ]}
-    >
-      {ranks.map((rank) =>
-        files.map((file) => {
-          const square = squareName(file, rank);
-          const dark = (file + rank) % 2 === 0;
-          const piece = pieces[square];
-          const isSel = selected === square;
-          const isLegal = legalFromSelected.has(square);
-          const isWinKing = winner === "w" || winner === "b" ? piece === `${winner}K` : false;
-          return (
-            <Pressable
-              key={square}
-              onPress={() => clickSquare(square)}
-              style={[
-                styles.sq,
-                { width: cell, height: cell },
-                dark ? styles.dark : styles.light,
-                isSel && styles.sel,
-                isLegal && styles.legal,
-                isWinKing && styles.winKing,
-              ]}
-            >
-              <Text style={[styles.piece, { fontSize: cell * 0.68 }]}>{piece ? UNICODE[piece] : ""}</Text>
-            </Pressable>
-          );
-        }),
-      )}
+    <View style={[styles.wrap, { width: size, height: size }, yourTurn && !winner ? styles.yourTurn : null]}>
+      {ranks.map((rank) => (
+        <View key={rank} style={styles.row}>
+          {files.map((file) => {
+            const square = squareName(file, rank);
+            const dark = (file + rank) % 2 === 0;
+            const piece = pieces[square];
+            const isSel = selected === square;
+            const isLegal = legalFromSelected.has(square);
+            const isWinKing = winner === "w" || winner === "b" ? piece === `${winner}K` : false;
+            const isLoseKing =
+              winner === "w" || winner === "b" ? piece === `${winner === "w" ? "b" : "w"}K` : false;
+            const isWhitePiece = piece?.startsWith("w");
+            return (
+              <Pressable
+                key={square}
+                onPress={() => clickSquare(square)}
+                style={[
+                  styles.sq,
+                  dark ? styles.dark : styles.light,
+                  isWinKing && styles.winKing,
+                  isLoseKing && styles.loseKing,
+                ]}
+              >
+                {isSel ? <View style={styles.selRing} pointerEvents="none" /> : null}
+                {isLegal ? <View style={styles.legalRing} pointerEvents="none" /> : null}
+                {piece ? (
+                  <Text
+                    style={[
+                      styles.piece,
+                      { fontSize: pieceSize, lineHeight: pieceSize + 4 },
+                      isWhitePiece ? styles.whitePiece : styles.blackPiece,
+                    ]}
+                  >
+                    {UNICODE[piece]}
+                  </Text>
+                ) : null}
+              </Pressable>
+            );
+          })}
+        </View>
+      ))}
       {resultLabel ? (
         <View style={styles.overlay} pointerEvents="none">
           <Text style={styles.kicker}>GAME OVER</Text>
@@ -137,26 +146,57 @@ export function Board({
 
 const styles = StyleSheet.create({
   wrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
     borderWidth: 3,
     borderColor: "#c4b07a",
     backgroundColor: "#eeeed2",
     overflow: "hidden",
+    position: "relative",
   },
   yourTurn: { borderColor: "#2e7d32" },
+  row: {
+    flex: 1,
+    flexDirection: "row",
+  },
   sq: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 0.5,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: "rgba(80,70,40,0.35)",
+    overflow: "hidden",
   },
   light: { backgroundColor: "#eeeed2" },
   dark: { backgroundColor: "#769656" },
-  sel: { borderWidth: 3, borderColor: "#f4d35e" },
-  legal: { borderWidth: 3, borderColor: "#22c55e" },
+  selRing: {
+    ...StyleSheet.absoluteFillObject,
+    borderWidth: 3,
+    borderColor: "#f4d35e",
+  },
+  legalRing: {
+    ...StyleSheet.absoluteFillObject,
+    borderWidth: 3,
+    borderColor: "#22c55e",
+  },
   winKing: { backgroundColor: "#f59e0b" },
-  piece: { color: "#111" },
+  loseKing: { backgroundColor: "#94a3b8" },
+  piece: {
+    fontSize: 28,
+    lineHeight: 32,
+    includeFontPadding: false,
+    textAlign: "center",
+  },
+  whitePiece: {
+    color: "#f8fafc",
+    textShadowColor: "rgba(0,0,0,0.85)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  blackPiece: {
+    color: "#111",
+    textShadowColor: "rgba(255,255,255,0.35)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
+  },
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(255,252,240,0.82)",
