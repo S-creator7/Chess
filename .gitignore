@@ -17,3 +17,5 @@ google-services.json
 credentials.json
 apps/mobile/credentials
 .eas
+apps/mobile/android
+apps/mobile/ios
