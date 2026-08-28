@@ -146,6 +146,11 @@ export function createChessApi(baseUrl: string, tokens: TokenStore) {
     game: (id: string) => request<{ game: GameDto }>(`/games/${id}`),
     pgn: (id: string) => request<{ pgn: string }>(`/games/${id}/pgn`),
     chat: (id: string) => request<{ messages: ChatMessageDto[] }>(`/games/${id}/chat`),
+    deleteAccount: (password: string) =>
+      request<{ ok: boolean }>("/auth/delete-account", {
+        method: "POST",
+        body: JSON.stringify({ password }),
+      }),
     refresh,
   };
 }

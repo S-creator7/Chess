@@ -65,6 +65,9 @@ importers:
 
   apps/mobile:
     dependencies:
+      '@babel/runtime':
+        specifier: ^7.29.7
+        version: 7.29.7
       '@chess/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client

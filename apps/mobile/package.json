@@ -7,9 +7,12 @@
     "dev": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "build:android": "eas build -p android --profile production",
+    "build:preview": "eas build -p android --profile preview"
   },
   "dependencies": {
+    "@babel/runtime": "^7.29.7",
     "@chess/api-client": "workspace:*",
     "@chess/chess-core": "workspace:*",
     "expo": "~52.0.46",

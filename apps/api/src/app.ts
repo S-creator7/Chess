@@ -4,7 +4,7 @@ import rateLimit from "@fastify/rate-limit";
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
 import { ZodError } from "zod";
-import type { Config } from "./config";
+import { corsOrigins, type Config } from "./config";
 import { AppError, errorBody } from "./lib/errors";
 import { createRedis } from "./lib/redis";
 import { registerAuthRoutes } from "./modules/auth/auth.routes";
@@ -16,7 +16,7 @@ export async function buildApp(config: Config) {
   const app = Fastify({ logger: true });
 
   await app.register(cors, {
-    origin: config.NODE_ENV === "production" ? config.WEB_ORIGIN : true,
+    origin: corsOrigins(config),
     credentials: true,
   });
   await app.register(cookie);

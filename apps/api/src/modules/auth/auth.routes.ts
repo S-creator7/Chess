@@ -55,7 +55,9 @@ export async function requireUser(request: FastifyRequest, config: Config) {
   if (!token) throw new AppError("UNAUTHORIZED", "Missing access token", 401);
   const payload = await verifyAccessToken(config, token);
   const user = await prisma.user.findUnique({ where: { id: payload.sub } });
-  if (!user) throw new AppError("UNAUTHORIZED", "User not found", 401);
+  if (!user || user.email.endsWith("@deleted.invalid")) {
+    throw new AppError("UNAUTHORIZED", "User not found", 401);
+  }
   return user;
 }
 
@@ -82,7 +84,7 @@ export async function registerAuthRoutes(app: FastifyInstance, config: Config) {
   app.post("/auth/login", async (request, reply) => {
     const body = loginSchema.parse(request.body);
     const user = await prisma.user.findUnique({ where: { email: body.email.toLowerCase() } });
-    if (!user || !(await verifyPassword(body.password, user.passwordHash))) {
+    if (!user || user.email.endsWith("@deleted.invalid") || !(await verifyPassword(body.password, user.passwordHash))) {
       throw new AppError("INVALID_CREDENTIALS", "Invalid email or password", 401);
     }
     const accessToken = await signAccessToken(config, { sub: user.id, email: user.email });
@@ -109,6 +111,28 @@ export async function registerAuthRoutes(app: FastifyInstance, config: Config) {
     const body = z.object({ refreshToken: z.string().optional() }).parse(request.body ?? {});
     const presented = readRefresh(request, body.refreshToken);
     if (presented) await revokeRefreshToken(presented);
+    clearRefreshCookie(reply);
+    return { ok: true };
+  });
+
+  app.post("/auth/delete-account", async (request, reply) => {
+    const user = await requireUser(request, config);
+    const body = z.object({ password: z.string().min(1) }).parse(request.body ?? {});
+    if (!(await verifyPassword(body.password, user.passwordHash))) {
+      throw new AppError("INVALID_CREDENTIALS", "Password is incorrect", 401);
+    }
+    await prisma.refreshToken.updateMany({
+      where: { userId: user.id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        email: `deleted-${user.id}@deleted.invalid`,
+        displayName: "Deleted player",
+        passwordHash: await hashPassword(createRefreshToken()),
+      },
+    });
     clearRefreshCookie(reply);
     return { ok: true };
   });

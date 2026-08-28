@@ -21,3 +21,11 @@ export function loadConfig(): Config {
   }
   return parsed.data;
 }
+
+export function corsOrigins(config: Config): string | string[] | boolean {
+  if (config.NODE_ENV !== "production") return true;
+  const list = config.WEB_ORIGIN.split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return list.length <= 1 ? (list[0] ?? true) : list;
+}

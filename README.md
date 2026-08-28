@@ -1,12 +1,13 @@
 # Chess
 
-Local and online chess on **web** and **iOS/Android (Expo)**. Shared rules (`chess-core`) and API client.
+Local and online chess on **web** and **Android (Expo)**. Shared rules (`chess-core`) and API client.
 
 ## Prerequisites
 
 - Node.js 20+
 - pnpm 9+
-- Expo Go on a phone (optional) or iOS Simulator / Android emulator
+- Expo Go on a phone (optional) or Android emulator
+- Docker (only for the production web portal)
 
 Local development uses **SQLite**.
 
@@ -33,3 +34,7 @@ EXPO_PUBLIC_WS_URL=ws://192.168.x.x:3001/ws
 ```
 
 Local play does not require an account. Online play and live chat require register/login.
+
+## Google Play and web portal
+
+See [store/PLAY_STORE.md](store/PLAY_STORE.md) for listing copy, privacy/account-deletion, Docker deploy, and the Android AAB (`com.screator7.chess`).

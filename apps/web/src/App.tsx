@@ -1,10 +1,12 @@
 import { Link, Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth/AuthProvider";
 import { HistoryPage } from "./pages/HistoryPage";
+import { AccountPage } from "./pages/AccountPage";
 import { HomePage } from "./pages/HomePage";
 import { LocalGame } from "./pages/LocalGame";
 import { LoginPage } from "./pages/LoginPage";
 import { OnlineGame, OnlineLobby } from "./pages/OnlinePages";
+import { PrivacyPage, TermsPage } from "./pages/LegalPages";
 
 export function App() {
   const { user, ready, logout } = useAuth();
@@ -18,7 +20,7 @@ export function App() {
           <Link to="/play/local">Local</Link>
           <Link to="/play/ai">Computer</Link>
           <Link to="/play/online">Online</Link>
-          {user ? <Link to="/history">History</Link> : null}
+          {user ? <Link to="/account">Account</Link> : null}
           {user ? (
             <>
               <span className="muted">{user.displayName} · {user.rating}</span>
@@ -37,7 +39,14 @@ export function App() {
         <Route path="/play/online" element={<OnlineLobby />} />
         <Route path="/play/online/:id" element={<OnlineGame />} />
         <Route path="/history" element={<HistoryPage />} />
+        <Route path="/account" element={<AccountPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
       </Routes>
+      <footer className="site-footer">
+        <Link to="/privacy">Privacy</Link>
+        <Link to="/terms">Terms</Link>
+      </footer>
     </div>
   );
 }

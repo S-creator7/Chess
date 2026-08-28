@@ -1,17 +1,43 @@
 {
   "expo": {
-    "name": "Chess",
-    "slug": "chess",
+    "name": "Chess Live",
+    "slug": "chess-live",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#101114"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.chess.app"
+      "bundleIdentifier": "com.screator7.chess",
+      "privacyManifests": {
+        "NSPrivacyAccessedAPITypes": []
+      }
     },
     "android": {
-      "package": "com.chess.app"
-    }
+      "package": "com.screator7.chess",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#101114"
+      },
+      "permissions": [
+        "INTERNET"
+      ]
+    },
+    "extra": {
+      "privacyPolicyUrl": "https://s-creator7.github.io/Chess/privacy.html",
+      "eas": {
+        "projectId": "a4829efa-2628-4be2-b048-f6b1881b60ef"
+      }
+    },
+    "owner": "skyroot_7"
   }
 }
