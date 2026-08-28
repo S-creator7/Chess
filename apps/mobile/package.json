@@ -16,6 +16,7 @@
     "@chess/api-client": "workspace:*",
     "@chess/chess-core": "workspace:*",
     "expo": "~52.0.46",
+    "expo-asset": "~11.0.5",
     "expo-secure-store": "~14.0.1",
     "expo-status-bar": "~2.0.1",
     "react": "18.3.1",

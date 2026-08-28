@@ -38,6 +38,9 @@
         "projectId": "a4829efa-2628-4be2-b048-f6b1881b60ef"
       }
     },
-    "owner": "skyroot_7"
+    "owner": "skyroot_7",
+    "plugins": [
+      "expo-asset"
+    ]
   }
 }
