@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useRef } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import {
   ChessPosition,
@@ -19,6 +19,12 @@ type State = {
   strength: EngineStrength;
   mode: Mode;
 };
+
+const STRENGTHS: { id: EngineStrength; title: string; hint: string }[] = [
+  { id: "easy", title: "Easy", hint: "Casual, more mistakes" },
+  { id: "medium", title: "Medium", hint: "Balanced play" },
+  { id: "hard", title: "Hard", hint: "Deeper search" },
+];
 
 function applyUci(state: State, uci: string): State {
   if (state.over) return state;
@@ -47,35 +53,44 @@ function applyUci(state: State, uci: string): State {
   return { ...state, fen: pos.fen(), over, result, reason, sans: last ? [...state.sans, last] : state.sans };
 }
 
-function initial(mode: Mode): State {
+function initial(mode: Mode, strength: EngineStrength = "medium", humanColor: "w" | "b" = "w"): State {
   return {
     fen: new ChessPosition().fen(),
     over: null,
     result: null,
     reason: null,
     sans: [],
-    humanColor: "w",
-    strength: "medium",
+    humanColor,
+    strength,
     mode,
   };
 }
 
 export function LocalScreen({ mode, onBack }: { mode: Mode; onBack: () => void }) {
   const [state, dispatch] = useReducer(
-    (s: State, a: { type: "move"; uci: string } | { type: "reset"; mode: Mode }): State => {
-      if (a.type === "reset") return initial(a.mode);
+    (
+      s: State,
+      a:
+        | { type: "move"; uci: string }
+        | { type: "reset"; mode: Mode; strength: EngineStrength; humanColor: "w" | "b" },
+    ): State => {
+      if (a.type === "reset") return initial(a.mode, a.strength, a.humanColor);
       return applyUci(s, a.uci);
     },
     initial(mode),
   );
+  const [started, setStarted] = useState(mode !== "ai");
+  const [pickStrength, setPickStrength] = useState<EngineStrength>("medium");
+  const [pickColor, setPickColor] = useState<"w" | "b">("w");
   const thinking = useRef(false);
 
   useEffect(() => {
-    dispatch({ type: "reset", mode });
+    setStarted(mode !== "ai");
+    dispatch({ type: "reset", mode, strength: "medium", humanColor: "w" });
   }, [mode]);
 
   useEffect(() => {
-    if (mode !== "ai" || state.over) return;
+    if (!started || mode !== "ai" || state.over) return;
     const pos = new ChessPosition(state.fen);
     if (pos.turn() === state.humanColor) return;
     if (thinking.current) return;
@@ -89,7 +104,43 @@ export function LocalScreen({ mode, onBack }: { mode: Mode; onBack: () => void }
       clearTimeout(id);
       thinking.current = false;
     };
-  }, [mode, state.fen, state.over, state.humanColor, state.strength]);
+  }, [started, mode, state.fen, state.over, state.humanColor, state.strength]);
+
+  function startAi() {
+    dispatch({ type: "reset", mode: "ai", strength: pickStrength, humanColor: pickColor });
+    setStarted(true);
+  }
+
+  if (mode === "ai" && !started) {
+    return (
+      <ScrollView contentContainerStyle={styles.page}>
+        <Pressable onPress={onBack}><Text style={styles.back}>← Home</Text></Pressable>
+        <Text style={styles.heading}>Vs computer</Text>
+        <Text style={styles.muted}>Choose a level, then start. The same engine as the web app.</Text>
+        {STRENGTHS.map((opt) => {
+          const on = pickStrength === opt.id;
+          return (
+            <Pressable key={opt.id} style={[styles.card, on && styles.cardOn]} onPress={() => setPickStrength(opt.id)}>
+              <Text style={styles.cardTitle}>{opt.title}</Text>
+              <Text style={styles.muted}>{opt.hint}</Text>
+            </Pressable>
+          );
+        })}
+        <Text style={styles.label}>You play</Text>
+        <View style={styles.row}>
+          <Pressable style={[styles.chip, pickColor === "w" && styles.chipOn]} onPress={() => setPickColor("w")}>
+            <Text style={styles.chipText}>White</Text>
+          </Pressable>
+          <Pressable style={[styles.chip, pickColor === "b" && styles.chipOn]} onPress={() => setPickColor("b")}>
+            <Text style={styles.chipText}>Black</Text>
+          </Pressable>
+        </View>
+        <Pressable style={styles.btn} onPress={startAi}>
+          <Text style={styles.btnText}>Start · {pickStrength}</Text>
+        </Pressable>
+      </ScrollView>
+    );
+  }
 
   const pos = new ChessPosition(state.fen);
   const canMove = !state.over && (mode === "pvp" || pos.turn() === state.humanColor);
@@ -99,8 +150,8 @@ export function LocalScreen({ mode, onBack }: { mode: Mode; onBack: () => void }
     : mode === "pvp"
       ? `${pos.turn() === "w" ? "White" : "Black"} to move`
       : pos.turn() === state.humanColor
-        ? "Your turn"
-        : "Computer thinking…";
+        ? `Your turn · ${state.strength}`
+        : `Computer thinking… · ${state.strength}`;
 
   return (
     <ScrollView contentContainerStyle={styles.page}>
@@ -122,8 +173,17 @@ export function LocalScreen({ mode, onBack }: { mode: Mode; onBack: () => void }
         }}
       />
       <Text style={styles.moves}>{state.sans.join(" ") || "No moves yet."}</Text>
-      <Pressable style={styles.btn} onPress={() => dispatch({ type: "reset", mode })}>
-        <Text style={styles.btnText}>New game</Text>
+      <Pressable
+        style={styles.btn}
+        onPress={() => {
+          if (mode === "ai") {
+            setStarted(false);
+            return;
+          }
+          dispatch({ type: "reset", mode, strength: state.strength, humanColor: state.humanColor });
+        }}
+      >
+        <Text style={styles.btnText}>{mode === "ai" ? "Change level" : "New game"}</Text>
       </Pressable>
     </ScrollView>
   );
@@ -132,6 +192,9 @@ export function LocalScreen({ mode, onBack }: { mode: Mode; onBack: () => void }
 const styles = StyleSheet.create({
   page: { padding: 12, paddingBottom: 40, backgroundColor: "#101114", minHeight: "100%" },
   back: { color: "#d4a017", marginBottom: 10, fontWeight: "700" },
+  heading: { color: "#fff", fontSize: 24, fontWeight: "800", marginBottom: 8 },
+  muted: { color: "#9ca3af", marginBottom: 16 },
+  label: { color: "#9ca3af", marginTop: 8, marginBottom: 8, fontWeight: "700" },
   banner: {
     backgroundColor: "#d4a017",
     color: "#111",
@@ -140,8 +203,30 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 8,
     marginBottom: 10,
+    textTransform: "capitalize",
   },
+  card: {
+    backgroundColor: "#1a1c22",
+    borderColor: "#2a2d36",
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  cardOn: { borderColor: "#d4a017", borderWidth: 2 },
+  cardTitle: { color: "#fff", fontSize: 18, fontWeight: "700", marginBottom: 4 },
+  row: { flexDirection: "row", gap: 10, marginBottom: 16 },
+  chip: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#2a2d36",
+    borderRadius: 10,
+    padding: 12,
+    alignItems: "center",
+  },
+  chipOn: { borderColor: "#d4a017", backgroundColor: "#2a2410" },
+  chipText: { color: "#fff", fontWeight: "700" },
   moves: { color: "#9ca3af", marginTop: 12 },
   btn: { backgroundColor: "#d4a017", padding: 12, borderRadius: 8, marginTop: 16, alignItems: "center" },
-  btnText: { fontWeight: "800", color: "#111" },
+  btnText: { fontWeight: "800", color: "#111", textTransform: "capitalize" },
 });

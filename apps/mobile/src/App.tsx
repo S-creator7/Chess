@@ -67,7 +67,7 @@ function Shell() {
       </Pressable>
       <Pressable style={styles.card} onPress={() => setScreen("ai")}>
         <Text style={styles.cardTitle}>Vs computer</Text>
-        <Text style={styles.muted}>Offline engine</Text>
+        <Text style={styles.muted}>Easy, medium, or hard</Text>
       </Pressable>
       <Pressable style={styles.card} onPress={() => setScreen("online")}>
         <Text style={styles.cardTitle}>Online + chat</Text>
