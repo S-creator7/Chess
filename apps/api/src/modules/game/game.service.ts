@@ -8,7 +8,7 @@ import {
   stopClocks,
   type ClockState,
 } from "@chess/chess-core";
-import type { Game, Move } from "@prisma/client";
+import { Prisma, type Game, type Move } from "@prisma/client";
 import { AppError } from "../../lib/errors";
 import { prisma } from "../../lib/prisma";
 
@@ -140,81 +140,118 @@ export async function applyRating(game: Game, result: string) {
 }
 
 export async function playMove(gameId: string, userId: string, uci: string, now = Date.now()) {
-  const game = await prisma.game.findUnique({
-    where: { id: gameId },
-    include: { moves: { orderBy: { ply: "asc" } } },
-  });
-  if (!game) throw new AppError("NOT_FOUND", "Game not found", 404);
-  if (game.status !== "active") throw new AppError("GAME_OVER", "Game is over", 409);
-  const you = colorOf(game, userId);
-  const pos = reconstructPosition(game.startFen, game.moves);
-  const clocks = liveClocks(game, pos.turn(), now);
-  const flagged = flagColor(clocks);
-  if (flagged) {
-    const result = flagged === "w" ? "0-1" : "1-0";
-    const updated = await prisma.game.update({
-      where: { id: game.id },
-      data: {
-        status: "completed",
-        result,
-        whiteClockMs: Math.max(0, clocks.whiteMs),
-        blackClockMs: Math.max(0, clocks.blackMs),
-      },
+  type MovePayload = {
+    gameId: string;
+    fen: string;
+    clocks: ClockState;
+    status: string;
+    result: string | null;
+    san: string;
+    uci: string;
+    ply: number;
+  };
+  type TxResult =
+    | { kind: "timeout"; updated: Game; result: string }
+    | { kind: "move"; payload: MovePayload; updated: Game };
+
+  let txResult: TxResult;
+  try {
+    txResult = await prisma.$transaction(async (tx) => {
+      const locked = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT id FROM "Game" WHERE id = ${gameId} FOR UPDATE
+      `;
+      if (locked.length === 0) throw new AppError("NOT_FOUND", "Game not found", 404);
+
+      const game = await tx.game.findUnique({
+        where: { id: gameId },
+        include: { moves: { orderBy: { ply: "asc" } } },
+      });
+      if (!game) throw new AppError("NOT_FOUND", "Game not found", 404);
+      if (game.status !== "active") throw new AppError("GAME_OVER", "Game is over", 409);
+      const you = colorOf(game, userId);
+      const pos = reconstructPosition(game.startFen, game.moves);
+      const clocks = liveClocks(game, pos.turn(), now);
+      const flagged = flagColor(clocks);
+      if (flagged) {
+        const result = flagged === "w" ? "0-1" : "1-0";
+        const updated = await tx.game.update({
+          where: { id: game.id },
+          data: {
+            status: "completed",
+            result,
+            whiteClockMs: Math.max(0, clocks.whiteMs),
+            blackClockMs: Math.max(0, clocks.blackMs),
+          },
+        });
+        return { kind: "timeout" as const, updated, result };
+      }
+      if (you !== pos.turn()) throw new AppError("NOT_YOUR_TURN", "Not your turn", 409);
+      let applied;
+      try {
+        applied = pos.applyUci(uci);
+      } catch {
+        throw new AppError("ILLEGAL_MOVE", "Illegal move", 400);
+      }
+      const nextClocks = afterMove(clocks, applied.color, game.incrementMs, now);
+      const ply = game.moves.length + 1;
+      const outcome = pos.outcome();
+      let status = "active";
+      let result: string | null = null;
+      if (outcome.over) {
+        status = "completed";
+        result = outcome.reason === "checkmate" ? (outcome.winner === "w" ? "1-0" : "0-1") : "1/2-1/2";
+      }
+      await tx.move.create({
+        data: {
+          gameId: game.id,
+          ply,
+          san: applied.san,
+          uci: applied.uci,
+          fenAfter: applied.fenAfter,
+          timeMs: applied.color === "w" ? nextClocks.whiteMs : nextClocks.blackMs,
+        },
+      });
+      const updated = await tx.game.update({
+        where: { id: game.id },
+        data: {
+          whiteClockMs: nextClocks.whiteMs,
+          blackClockMs: nextClocks.blackMs,
+          lastMoveAt: new Date(now),
+          status,
+          result,
+        },
+      });
+      return {
+        kind: "move" as const,
+        updated,
+        payload: {
+          gameId: game.id,
+          fen: pos.fen(),
+          clocks: nextClocks,
+          status,
+          result,
+          san: applied.san,
+          uci: applied.uci,
+          ply,
+        },
+      };
     });
-    await applyRating(updated, result);
+  } catch (err) {
+    if (err instanceof AppError) throw err;
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      throw new AppError("CONFLICT", "Move already applied", 409);
+    }
+    throw err;
+  }
+
+  if (txResult.kind === "timeout") {
+    await applyRating(txResult.updated, txResult.result);
     throw new AppError("GAME_OVER", "Time expired", 409);
   }
-  if (you !== pos.turn()) throw new AppError("NOT_YOUR_TURN", "Not your turn", 409);
-  let applied;
-  try {
-    applied = pos.applyUci(uci);
-  } catch {
-    throw new AppError("ILLEGAL_MOVE", "Illegal move", 400);
+  if (txResult.payload.status === "completed" && txResult.payload.result) {
+    await applyRating(txResult.updated, txResult.payload.result);
   }
-  const nextClocks = afterMove(clocks, applied.color, game.incrementMs, now);
-  const ply = game.moves.length + 1;
-  const outcome = pos.outcome();
-  let status = "active";
-  let result: string | null = null;
-  if (outcome.over) {
-    status = "completed";
-    result = outcome.reason === "checkmate" ? (outcome.winner === "w" ? "1-0" : "0-1") : "1/2-1/2";
-  }
-  const updated = await prisma.$transaction(async (tx) => {
-    await tx.move.create({
-      data: {
-        gameId: game.id,
-        ply,
-        san: applied.san,
-        uci: applied.uci,
-        fenAfter: applied.fenAfter,
-        timeMs: applied.color === "w" ? nextClocks.whiteMs : nextClocks.blackMs,
-      },
-    });
-    return tx.game.update({
-      where: { id: game.id },
-      data: {
-        whiteClockMs: nextClocks.whiteMs,
-        blackClockMs: nextClocks.blackMs,
-        lastMoveAt: new Date(now),
-        status,
-        result,
-      },
-    });
-  });
-  if (status === "completed" && result) {
-    await applyRating(updated, result);
-  }
-  return {
-    gameId: game.id,
-    fen: pos.fen(),
-    clocks: nextClocks,
-    status,
-    result,
-    san: applied.san,
-    uci: applied.uci,
-    ply,
-  };
+  return txResult.payload;
 }
 
 export async function resignGame(gameId: string, userId: string, now = Date.now()) {

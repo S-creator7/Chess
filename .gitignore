@@ -19,3 +19,4 @@ apps/mobile/credentials
 .eas
 apps/mobile/android
 apps/mobile/ios
+.pnpm-store
